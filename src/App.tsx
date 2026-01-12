@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Client, Sector, MasterModule, ModuleInstance, AppState, ModuleConfigValue } from './types';
 import { loadState, saveState, isAuthenticated, login as authLogin, logout as authLogout } from './lib/storage';
 import { Login } from './components/Login';
@@ -12,16 +13,10 @@ import { ModuleAssignment } from './components/ModuleAssignment';
 import { ModuleConfigEditor } from './components/ModuleConfigEditor';
 import { DebugExport } from './components/DebugExport';
 
-type View = 
-  | { type: 'dashboard' }
-  | { type: 'sectors' }
-  | { type: 'clients' }
-  | { type: 'modules' }
-  | { type: 'sector-assignment'; sectorId: string }
-  | { type: 'sector-config'; sectorId: string; moduleId: string }
-  | { type: 'client-assignment'; clientId: string }
-  | { type: 'client-config'; clientId: string; moduleId: string }
-  | { type: 'debug' };
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const authenticated = isAuthenticated();
+  return authenticated ? <>{children}</> : <Navigate to="/login" replace />;
+}
 
 export default function App() {
   const [authenticated, setAuthenticated] = useState(isAuthenticated());
@@ -30,7 +25,8 @@ export default function App() {
     return saved === 'true';
   });
   const [state, setState] = useState<AppState>(() => loadState());
-  const [currentView, setCurrentView] = useState<View>({ type: 'dashboard' });
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Apply dark mode
   useEffect(() => {
@@ -51,6 +47,7 @@ export default function App() {
   const handleLogin = (username: string, password: string) => {
     if (authLogin(username, password)) {
       setAuthenticated(true);
+      navigate('/dashboard');
     } else {
       alert('Invalid credentials. Please use admin/admin123');
     }
@@ -59,7 +56,7 @@ export default function App() {
   const handleLogout = () => {
     authLogout();
     setAuthenticated(false);
-    setCurrentView({ type: 'dashboard' });
+    navigate('/login');
   };
 
   // Sector operations
@@ -88,10 +85,23 @@ export default function App() {
 
   // Client operations
   const addClient = (client: Client) => {
-    setState(prev => ({
-      ...prev,
-      clients: [...prev.clients, client]
-    }));
+    setState(prev => {
+      // Auto-inherit modules from sector if client has sector_id
+      let clientWithModules = { ...client };
+
+      if (client.sector_id) {
+        const sector = prev.sectors.find(s => s.id === client.sector_id);
+        if (sector && Object.keys(sector.modules).length > 0) {
+          // Copy all modules from sector to client
+          clientWithModules.modules = { ...sector.modules };
+        }
+      }
+
+      return {
+        ...prev,
+        clients: [...prev.clients, clientWithModules]
+      };
+    });
   };
 
   const updateClient = (clientId: string, updates: Partial<Client>) => {
@@ -253,7 +263,7 @@ export default function App() {
         return s;
       })
     }));
-    setCurrentView({ type: 'sector-assignment', sectorId });
+    navigate(`/sectors/${sectorId}/modules`);
   };
 
   // Client module assignment
@@ -374,7 +384,7 @@ export default function App() {
         return c;
       })
     }));
-    setCurrentView({ type: 'client-assignment', clientId });
+    navigate(`/clients/${clientId}/modules`);
   };
 
   // Data operations
@@ -398,180 +408,226 @@ export default function App() {
 
   // Navigation
   const navigateToPage = (page: string) => {
-    switch (page) {
-      case 'dashboard':
-        setCurrentView({ type: 'dashboard' });
-        break;
-      case 'sectors':
-        setCurrentView({ type: 'sectors' });
-        break;
-      case 'clients':
-        setCurrentView({ type: 'clients' });
-        break;
-      case 'modules':
-        setCurrentView({ type: 'modules' });
-        break;
-      case 'debug':
-        setCurrentView({ type: 'debug' });
-        break;
-    }
+    navigate(`/${page}`);
   };
 
   const navigateToSectorAssignment = (sectorId: string) => {
-    setCurrentView({ type: 'sector-assignment', sectorId });
+    navigate(`/sectors/${sectorId}/modules`);
   };
 
   const navigateToSectorConfig = (sectorId: string, moduleId: string) => {
-    setCurrentView({ type: 'sector-config', sectorId, moduleId });
+    navigate(`/sectors/${sectorId}/modules/${moduleId}/config`);
   };
 
   const navigateToClientAssignment = (clientId: string) => {
-    setCurrentView({ type: 'client-assignment', clientId });
+    navigate(`/clients/${clientId}/modules`);
   };
 
   const navigateToClientConfig = (clientId: string, moduleId: string) => {
-    setCurrentView({ type: 'client-config', clientId, moduleId });
+    navigate(`/clients/${clientId}/modules/${moduleId}/config`);
   };
 
-  if (!authenticated) {
-    return <Login onLogin={handleLogin} />;
-  }
-
-  // Get current entities
-  const getCurrentSector = () => {
-    if (currentView.type === 'sector-assignment' || currentView.type === 'sector-config') {
-      return state.sectors.find(s => s.id === currentView.sectorId);
-    }
-  };
-
-  const getCurrentClient = () => {
-    if (currentView.type === 'client-assignment' || currentView.type === 'client-config') {
-      return state.clients.find(c => c.client_id === currentView.clientId);
-    }
-  };
-
-  const getCurrentModule = () => {
-    if (currentView.type === 'sector-config') {
-      return state.masterModules.find(m => m.id.toString() === currentView.moduleId);
-    }
-    if (currentView.type === 'client-config') {
-      return state.masterModules.find(m => m.id.toString() === currentView.moduleId);
-    }
-  };
-
-  const getSectorConfigForClient = () => {
-    if (currentView.type === 'client-config') {
-      const client = getCurrentClient();
-      const sector = client?.sector_id ? state.sectors.find(s => s.id === client.sector_id) : null;
-      return sector?.modules[currentView.moduleId]?.config_values;
-    }
+  const getCurrentPage = () => {
+    const path = location.pathname;
+    if (path.startsWith('/sectors')) return 'sectors';
+    if (path.startsWith('/clients')) return 'clients';
+    if (path.startsWith('/modules')) return 'modules';
+    if (path.startsWith('/debug')) return 'debug';
+    return 'dashboard';
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
-      <Sidebar
-        currentPage={currentView.type.split('-')[0]}
-        onNavigate={navigateToPage}
-        onLogout={handleLogout}
-        darkMode={darkMode}
-        onToggleDarkMode={() => setDarkMode(!darkMode)}
-      />
-      
-      <div className="flex-1 overflow-auto">
-        {currentView.type === 'dashboard' && (
-          <Dashboard
-            state={state}
-            onNavigate={navigateToPage}
-          />
-        )}
+    <Routes>
+      <Route path="/login" element={<Login onLogin={handleLogin} />} />
 
-        {currentView.type === 'sectors' && (
-          <SectorManagement
-            sectors={state.sectors}
-            onAdd={addSector}
-            onUpdate={updateSector}
-            onDelete={deleteSector}
-            onManageModules={navigateToSectorAssignment}
-          />
-        )}
+      <Route path="/*" element={
+        <ProtectedRoute>
+          <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+            <Sidebar
+              currentPage={getCurrentPage()}
+              onNavigate={navigateToPage}
+              onLogout={handleLogout}
+              darkMode={darkMode}
+              onToggleDarkMode={() => setDarkMode(!darkMode)}
+            />
 
-        {currentView.type === 'clients' && (
-          <ClientManagement
-            clients={state.clients}
-            sectors={state.sectors}
-            onAdd={addClient}
-            onUpdate={updateClient}
-            onDelete={deleteClient}
-            onManageModules={navigateToClientAssignment}
-          />
-        )}
+            <div className="flex-1 overflow-auto">
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={
+                  <Dashboard
+                    state={state}
+                    onNavigate={navigateToPage}
+                  />
+                } />
 
-        {currentView.type === 'modules' && (
-          <MasterModuleManagement
-            modules={state.masterModules}
-            onAdd={addModule}
-            onUpdate={updateModule}
-            onDelete={deleteModule}
-          />
-        )}
+                <Route path="/sectors" element={
+                  <SectorManagement
+                    sectors={state.sectors}
+                    onAdd={addSector}
+                    onUpdate={updateSector}
+                    onDelete={deleteSector}
+                    onManageModules={navigateToSectorAssignment}
+                  />
+                } />
 
-        {currentView.type === 'sector-assignment' && getCurrentSector() && (
-          <SectorModuleAssignment
-            sector={getCurrentSector()!}
-            masterModules={state.masterModules}
-            onAssignModule={assignSectorModule}
-            onUnassignModule={unassignSectorModule}
-            onToggleActive={toggleSectorModuleActive}
-            onUpdatePrompt={updateSectorModulePrompt}
-            onConfigureModule={navigateToSectorConfig}
-            onBack={() => navigateToPage('sectors')}
-          />
-        )}
+                <Route path="/sectors/:sectorId/modules" element={
+                  <SectorModuleAssignmentWrapper
+                    state={state}
+                    masterModules={state.masterModules}
+                    onAssignModule={assignSectorModule}
+                    onUnassignModule={unassignSectorModule}
+                    onToggleActive={toggleSectorModuleActive}
+                    onUpdatePrompt={updateSectorModulePrompt}
+                    onConfigureModule={navigateToSectorConfig}
+                    onBack={() => navigateToPage('sectors')}
+                  />
+                } />
 
-        {currentView.type === 'sector-config' && getCurrentSector() && getCurrentModule() && (
-          <ModuleConfigEditor
-            entity={getCurrentSector()!}
-            entityType="sector"
-            moduleId={currentView.moduleId}
-            masterModule={getCurrentModule()!}
-            onSave={(configValues) => updateSectorModuleConfig(currentView.sectorId, currentView.moduleId, configValues)}
-            onBack={() => navigateToSectorAssignment(currentView.sectorId)}
-          />
-        )}
+                <Route path="/sectors/:sectorId/modules/:moduleId/config" element={
+                  <SectorConfigWrapper
+                    state={state}
+                    masterModules={state.masterModules}
+                    onSave={updateSectorModuleConfig}
+                    onBack={navigateToSectorAssignment}
+                  />
+                } />
 
-        {currentView.type === 'client-assignment' && getCurrentClient() && (
-          <ModuleAssignment
-            client={getCurrentClient()!}
-            masterModules={state.masterModules}
-            onAssignModule={assignClientModule}
-            onUnassignModule={unassignClientModule}
-            onToggleActive={toggleClientModuleActive}
-            onUpdatePrompt={updateClientModulePrompt}
-            onConfigureModule={navigateToClientConfig}
-            onBack={() => navigateToPage('clients')}
-          />
-        )}
+                <Route path="/clients" element={
+                  <ClientManagement
+                    clients={state.clients}
+                    sectors={state.sectors}
+                    onAdd={addClient}
+                    onUpdate={updateClient}
+                    onDelete={deleteClient}
+                    onManageModules={navigateToClientAssignment}
+                  />
+                } />
 
-        {currentView.type === 'client-config' && getCurrentClient() && getCurrentModule() && (
-          <ModuleConfigEditor
-            entity={getCurrentClient()!}
-            entityType="client"
-            moduleId={currentView.moduleId}
-            masterModule={getCurrentModule()!}
-            sectorConfig={getSectorConfigForClient()}
-            onSave={(configValues, isOverride) => updateClientModuleConfig(currentView.clientId, currentView.moduleId, configValues, isOverride)}
-            onBack={() => navigateToClientAssignment(currentView.clientId)}
-          />
-        )}
+                <Route path="/clients/:clientId/modules" element={
+                  <ClientModuleAssignmentWrapper
+                    state={state}
+                    masterModules={state.masterModules}
+                    onAssignModule={assignClientModule}
+                    onUnassignModule={unassignClientModule}
+                    onToggleActive={toggleClientModuleActive}
+                    onUpdatePrompt={updateClientModulePrompt}
+                    onConfigureModule={navigateToClientConfig}
+                    onBack={() => navigateToPage('clients')}
+                  />
+                } />
 
-        {currentView.type === 'debug' && (
-          <DebugExport
-            onExport={handleExport}
-            onImport={handleImport}
-            onClear={handleClear}
-          />
-        )}
-      </div>
-    </div>
+                <Route path="/clients/:clientId/modules/:moduleId/config" element={
+                  <ClientConfigWrapper
+                    state={state}
+                    masterModules={state.masterModules}
+                    onSave={updateClientModuleConfig}
+                    onBack={navigateToClientAssignment}
+                  />
+                } />
+
+                <Route path="/modules" element={
+                  <MasterModuleManagement
+                    modules={state.masterModules}
+                    onAdd={addModule}
+                    onUpdate={updateModule}
+                    onDelete={deleteModule}
+                  />
+                } />
+
+                <Route path="/debug" element={
+                  <DebugExport
+                    onExport={handleExport}
+                    onImport={handleImport}
+                    onClear={handleClear}
+                  />
+                } />
+              </Routes>
+            </div>
+          </div>
+        </ProtectedRoute>
+      } />
+    </Routes>
+  );
+}
+
+function SectorModuleAssignmentWrapper({ state, masterModules, onAssignModule, onUnassignModule, onToggleActive, onUpdatePrompt, onConfigureModule, onBack }: any) {
+  const { sectorId } = useParams();
+  const sector = state.sectors.find((s: Sector) => s.id === sectorId);
+
+  if (!sector) return <div className="p-8">Sector not found</div>;
+
+  return (
+    <SectorModuleAssignment
+      sector={sector}
+      masterModules={masterModules}
+      onAssignModule={onAssignModule}
+      onUnassignModule={onUnassignModule}
+      onToggleActive={onToggleActive}
+      onUpdatePrompt={onUpdatePrompt}
+      onConfigureModule={onConfigureModule}
+      onBack={onBack}
+    />
+  );
+}
+
+function SectorConfigWrapper({ state, masterModules, onSave, onBack }: any) {
+  const { sectorId, moduleId } = useParams();
+  const sector = state.sectors.find((s: Sector) => s.id === sectorId);
+  const masterModule = masterModules.find((m: MasterModule) => m.id.toString() === moduleId);
+
+  if (!sector || !masterModule) return <div className="p-8">Sector or Module not found</div>;
+
+  return (
+    <ModuleConfigEditor
+      entity={sector}
+      entityType="sector"
+      moduleId={moduleId!}
+      masterModule={masterModule}
+      onSave={(configValues) => onSave(sectorId, moduleId, configValues)}
+      onBack={() => onBack(sectorId!)}
+    />
+  );
+}
+
+function ClientModuleAssignmentWrapper({ state, masterModules, onAssignModule, onUnassignModule, onToggleActive, onUpdatePrompt, onConfigureModule, onBack }: any) {
+  const { clientId } = useParams();
+  const client = state.clients.find((c: Client) => c.client_id === clientId);
+
+  if (!client) return <div className="p-8">Client not found</div>;
+
+  return (
+    <ModuleAssignment
+      client={client}
+      masterModules={masterModules}
+      onAssignModule={onAssignModule}
+      onUnassignModule={onUnassignModule}
+      onToggleActive={onToggleActive}
+      onUpdatePrompt={onUpdatePrompt}
+      onConfigureModule={onConfigureModule}
+      onBack={onBack}
+    />
+  );
+}
+
+function ClientConfigWrapper({ state, masterModules, onSave, onBack }: any) {
+  const { clientId, moduleId } = useParams();
+  const client = state.clients.find((c: Client) => c.client_id === clientId);
+  const masterModule = masterModules.find((m: MasterModule) => m.id.toString() === moduleId);
+  const sector = client?.sector_id ? state.sectors.find((s: Sector) => s.id === client.sector_id) : null;
+  const sectorConfig = sector?.modules[moduleId!]?.config_values;
+
+  if (!client || !masterModule) return <div className="p-8">Client or Module not found</div>;
+
+  return (
+    <ModuleConfigEditor
+      entity={client}
+      entityType="client"
+      moduleId={moduleId!}
+      masterModule={masterModule}
+      sectorConfig={sectorConfig}
+      onSave={(configValues, isOverride) => onSave(clientId, moduleId, configValues, isOverride)}
+      onBack={() => onBack(clientId!)}
+    />
   );
 }

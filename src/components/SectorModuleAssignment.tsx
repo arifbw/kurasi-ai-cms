@@ -26,6 +26,8 @@ export function SectorModuleAssignment({
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<{ moduleId: string; prompt: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [modalSearchQuery, setModalSearchQuery] = useState('');
+  const [selectedModuleIds, setSelectedModuleIds] = useState<Set<number>>(new Set());
 
   const assignedModuleIds = Object.keys(sector.modules);
   const availableModules = masterModules.filter(m => !assignedModuleIds.includes(m.id.toString()));
@@ -42,9 +44,50 @@ export function SectorModuleAssignment({
     );
   });
 
+  // Filter available modules in modal based on search
+  const filteredAvailableModules = availableModules.filter(module => {
+    const query = modalSearchQuery.toLowerCase();
+    return (
+      module.name.toLowerCase().includes(query) ||
+      module.query_name.toLowerCase().includes(query) ||
+      module.description.toLowerCase().includes(query) ||
+      module.tab.toLowerCase().includes(query) ||
+      module.metrics.some(metric => metric.toLowerCase().includes(query))
+    );
+  });
+
   const handleAssign = (moduleId: number) => {
     onAssignModule(sector.id, moduleId.toString());
     setIsAssignModalOpen(false);
+    setSelectedModuleIds(new Set());
+    setModalSearchQuery('');
+  };
+
+  const handleAssignSelected = () => {
+    selectedModuleIds.forEach(moduleId => {
+      onAssignModule(sector.id, moduleId.toString());
+    });
+    setIsAssignModalOpen(false);
+    setSelectedModuleIds(new Set());
+    setModalSearchQuery('');
+  };
+
+  const toggleModuleSelection = (moduleId: number) => {
+    const newSelected = new Set(selectedModuleIds);
+    if (newSelected.has(moduleId)) {
+      newSelected.delete(moduleId);
+    } else {
+      newSelected.add(moduleId);
+    }
+    setSelectedModuleIds(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedModuleIds.size === filteredAvailableModules.length) {
+      setSelectedModuleIds(new Set());
+    } else {
+      setSelectedModuleIds(new Set(filteredAvailableModules.map(m => m.id)));
+    }
   };
 
   const handleSavePrompt = () => {
@@ -221,51 +264,128 @@ export function SectorModuleAssignment({
       </div>
 
       {isAssignModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
-            <h2 className="mb-4 text-gray-900 dark:text-white">Assign Module to {sector.name}</h2>
-            {availableModules.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 py-8 text-center">
-                All available modules have been assigned to this sector.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {availableModules.map((module) => (
-                  <div
-                    key={module.id}
-                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer flex justify-between items-center"
-                    onClick={() => handleAssign(module.id)}
+        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-700">
+            {/* Header - Fixed */}
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Assign Module to {sector.name}</h2>
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search modules by name, description, tab, or metrics..."
+                  value={modalSearchQuery}
+                  onChange={(e) => setModalSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                />
+                {modalSearchQuery && (
+                  <button
+                    onClick={() => setModalSearchQuery('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                   >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-gray-900 dark:text-white">{module.name}</h3>
-                        <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400 px-2 py-1 rounded text-sm">
-                          {module.tab}
-                        </span>
-                      </div>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{module.description}</p>
-                      <div className="mt-2 flex gap-2">
-                        {module.metrics.map((metric, idx) => (
-                          <span key={idx} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded text-xs">
-                            {metric}
-                          </span>
-                        ))}
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Select All */}
+              {filteredAvailableModules.length > 0 && (
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <input
+                    type="checkbox"
+                    id="select-all"
+                    checked={selectedModuleIds.size === filteredAvailableModules.length && filteredAvailableModules.length > 0}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  <label htmlFor="select-all" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    Select All ({filteredAvailableModules.length} modules)
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {availableModules.length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400 py-8 text-center">
+                  All available modules have been assigned to this sector.
+                </p>
+              ) : filteredAvailableModules.length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400 py-8 text-center">
+                  No modules found matching "{modalSearchQuery}"
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {filteredAvailableModules.map((module) => (
+                    <div
+                      key={module.id}
+                      className={`border rounded-lg p-4 transition-colors cursor-pointer ${
+                        selectedModuleIds.has(module.id)
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                      onClick={() => toggleModuleSelection(module.id)}
+                    >
+                      <div className="flex items-start gap-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedModuleIds.has(module.id)}
+                          onChange={() => toggleModuleSelection(module.id)}
+                          className="mt-1 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="font-medium text-gray-900 dark:text-white">{module.name}</h3>
+                            <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400 px-2 py-0.5 rounded text-xs">
+                              {module.tab}
+                            </span>
+                          </div>
+                          <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">{module.description}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {module.metrics.map((metric, idx) => (
+                              <span key={idx} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded text-xs">
+                                {metric}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                      Assign
-                    </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer - Fixed */}
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {selectedModuleIds.size > 0 ? `${selectedModuleIds.size} module${selectedModuleIds.size !== 1 ? 's' : ''} selected` : ''}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setIsAssignModalOpen(false);
+                      setSelectedModuleIds(new Set());
+                      setModalSearchQuery('');
+                    }}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAssignSelected}
+                    disabled={selectedModuleIds.size === 0}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Assign Selected ({selectedModuleIds.size})
+                  </button>
+                </div>
               </div>
-            )}
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setIsAssignModalOpen(false)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>
