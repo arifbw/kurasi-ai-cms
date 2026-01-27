@@ -37,6 +37,7 @@ export interface Client {
   project_id: number;
   category: string;
   sector_id?: string; // link ke sector
+  logo?: string; 
   modules: Record<string, ModuleInstance>;
 }
 

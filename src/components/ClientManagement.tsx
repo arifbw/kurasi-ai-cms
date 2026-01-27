@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Client, Sector } from '../types';
-import { Pencil, Trash2, Plus, Settings, Search } from 'lucide-react';
+import { Pencil, Trash2, Plus, Settings, Search, Upload, X } from 'lucide-react';
 
 interface ClientManagementProps {
   clients: Client[];
@@ -28,18 +28,48 @@ export function ClientManagement({
     name: '',
     project_id: 0,
     category: '',
-    sector_id: ''
+    sector_id: '',
+    logo: ''
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        alert('File size must be less than 2MB');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, logo: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeLogo = () => {
+    setFormData({ ...formData, logo: '' });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (editingClient) {
       onUpdate(editingClient.client_id, {
         name: formData.name,
         project_id: formData.project_id,
         category: formData.category,
-        sector_id: formData.sector_id
+        sector_id: formData.sector_id,
+        logo: formData.logo || undefined
       });
     } else {
       const newClient: Client = {
@@ -48,11 +78,12 @@ export function ClientManagement({
         project_id: formData.project_id,
         category: formData.category,
         sector_id: formData.sector_id,
+        logo: formData.logo || undefined,
         modules: {}
       };
       onAdd(newClient);
     }
-    
+
     closeModal();
   };
 
@@ -64,11 +95,12 @@ export function ClientManagement({
         name: client.name,
         project_id: client.project_id,
         category: client.category || '',
-        sector_id: client.sector_id || ''
+        sector_id: client.sector_id || '',
+        logo: client.logo || ''
       });
     } else {
       setEditingClient(null);
-      setFormData({ client_id: `client_${Date.now()}`, name: '', project_id: '', category: '', sector_id: '' });
+      setFormData({ client_id: `client_${Date.now()}`, name: '', project_id: '', category: '', sector_id: '', logo: '' });
     }
     setIsModalOpen(true);
   };
@@ -76,7 +108,10 @@ export function ClientManagement({
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingClient(null);
-    setFormData({ client_id: '', name: '', project_id: 0, category: '', sector_id: '' });
+    setFormData({ client_id: '', name: '', project_id: 0, category: '', sector_id: '', logo: '' });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const toggleGroup = (groupKey: string) => {
@@ -149,6 +184,7 @@ export function ClientManagement({
         <table className="w-full">
           <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
             <tr>
+              <th className="px-6 py-3 text-left text-gray-700 dark:text-gray-300">Logo</th>
               <th className="px-6 py-3 text-left text-gray-700 dark:text-gray-300">Name</th>
               <th className="px-6 py-3 text-left text-gray-700 dark:text-gray-300">Project ID</th>
               <th className="px-6 py-3 text-left text-gray-700 dark:text-gray-300">Data Source</th>
@@ -163,6 +199,19 @@ export function ClientManagement({
                   className="border-b hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                   onClick={() => toggleGroup(groupKey)}
                 >
+                  <td className="px-6 py-4">
+                    {clients[0].logo ? (
+                      <img
+                        src={clients[0].logo}
+                        alt={`${clients[0].name} logo`}
+                        className="w-10 h-10 object-contain rounded"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-gray-200 dark:bg-gray-600 rounded flex items-center justify-center text-gray-400 text-xs">
+                        No logo
+                      </div>
+                    )}
+                  </td>
                   <td className="px-6 py-4 font-semibold">
                     {clients[0].name}
                   </td>
@@ -176,24 +225,25 @@ export function ClientManagement({
                     {clients.length > 1 ? '-' : `${Object.keys(clients[0].modules).length} assigned`}
                   </td>
                   <td className="px-6 py-4">
-                    {clients.length > 1 ? '⬇️ Click to Expand' : (
+                    {clients.length > 1 ? 'Click to Expand' : (
                       <div className="flex gap-2">
                         <button
-                          onClick={() => onManageModules(clients[0].client_id)}
+                          onClick={(e) => { e.stopPropagation(); onManageModules(clients[0].client_id); }}
                           className="p-2 text-purple-600 hover:bg-purple-50 rounded"
                           title="Manage Modules"
                         >
                           <Settings className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => openModal(clients[0])}
+                          onClick={(e) => { e.stopPropagation(); openModal(clients[0]); }}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded"
                           title="Edit"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (confirm(`Delete client "${clients[0].name}"?`)) {
                               onDelete(clients[0].client_id);
                             }
@@ -209,6 +259,19 @@ export function ClientManagement({
                 </tr>
                 {expandedGroups[groupKey] && clients.length > 1 && clients.map((client, index) => (
                   <tr key={client.client_id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="px-6 py-4 pl-10">
+                      {client.logo ? (
+                        <img
+                          src={client.logo}
+                          alt={`${client.name} logo`}
+                          className="w-8 h-8 object-contain rounded"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded flex items-center justify-center text-gray-400 text-xs">
+                          -
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 pl-10 text-gray-600">
                       {index + 1}. {client.category}
                     </td>
@@ -317,7 +380,7 @@ export function ClientManagement({
                   <option value="">Select a sector</option>
                   {/* only show sectors with category 'medsos', 'medkon', or 'others' depends on formData.category */}
                   {sectors
-                    .filter(sector => 
+                    .filter(sector =>
                       formData.category === 'medsos' ? sector.category === 'medsos' :
                       formData.category === 'medkon' ? sector.category === 'medkon' :
                       sector.category === 'others'
@@ -328,6 +391,48 @@ export function ClientManagement({
                       </option>
                     ))}
                 </select>
+              </div>
+              <div className="mb-6">
+                <label className="block text-gray-700 mb-2">
+                  Logo
+                </label>
+                <div className="space-y-3">
+                  {formData.logo ? (
+                    <div className="relative inline-block">
+                      <img
+                        src={formData.logo}
+                        alt="Logo preview"
+                        className="w-24 h-24 object-contain border rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeLogo}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        title="Remove logo"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                    >
+                      <Upload className="w-6 h-6 text-gray-400" />
+                      <span className="text-xs text-gray-500 mt-1">Upload</span>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Accepted formats: JPG, PNG, GIF, SVG. Max 2MB.
+                  </p>
+                </div>
               </div>
               <div className="flex gap-3 justify-end">
                 <button
