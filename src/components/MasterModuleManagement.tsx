@@ -7,8 +7,8 @@ import { Pencil, Trash2, Plus, ChevronDown, ChevronUp, Search } from 'lucide-rea
 interface MasterModuleManagementProps {
   modules: MasterModule[];
   onAdd: (module: MasterModule) => void;
-  onUpdate: (moduleId: number, updates: Partial<MasterModule>) => void;
-  onDelete: (moduleId: number) => void;
+  onUpdate: (moduleId: string, updates: Partial<MasterModule>) => void;
+  onDelete: (moduleId: string) => void;
 }
 
 export function MasterModuleManagement({
@@ -19,7 +19,7 @@ export function MasterModuleManagement({
 }: MasterModuleManagementProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingModule, setEditingModule] = useState<MasterModule | null>(null);
-  const [expandedModule, setExpandedModule] = useState<number | null>(null);
+  const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState<Partial<MasterModule>>({
     name: '',
@@ -39,7 +39,7 @@ export function MasterModuleManagement({
       toast.success('Module updated successfully');
     } else {
       const newModule: MasterModule = {
-        id: Date.now(), // Keep numeric ID for MasterModule as it's used in the type
+        id: uuidv4(),
         name: formData.name || '',
         query_name: formData.query_name || '',
         tab: formData.tab || '',

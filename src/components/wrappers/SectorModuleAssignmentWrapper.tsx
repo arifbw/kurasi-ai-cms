@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/appStore';
-import { SectorModuleAssignment } from '../SectorModuleAssignment';
+import { EntityModuleAssignment } from '../EntityModuleAssignment';
 
 export function SectorModuleAssignmentWrapper() {
   const { sectorId } = useParams();
@@ -16,27 +16,20 @@ export function SectorModuleAssignmentWrapper() {
   const sector = sectors.find((s) => s.id === sectorId);
 
   if (!sector) {
-    return <div className="p-8">Sector not found</div>;
+    return <div className="p-8 text-gray-900 dark:text-white">Sector not found</div>;
   }
 
-  const handleConfigureModule = (sectorId: string, moduleId: string) => {
-    navigate(`/sectors/${sectorId}/modules/${moduleId}/config`);
-  };
-
-  const handleBack = () => {
-    navigate('/sectors');
-  };
-
   return (
-    <SectorModuleAssignment
-      sector={sector}
+    <EntityModuleAssignment
+      entity={sector}
+      entityType="sector"
       masterModules={masterModules}
       onAssignModule={assignSectorModule}
       onUnassignModule={unassignSectorModule}
       onToggleActive={toggleSectorModuleActive}
       onUpdatePrompt={updateSectorModulePrompt}
-      onConfigureModule={handleConfigureModule}
-      onBack={handleBack}
+      onConfigureModule={(sectorId, moduleId) => navigate(`/sectors/${sectorId}/modules/${moduleId}/config`)}
+      onBack={() => navigate('/sectors')}
     />
   );
 }

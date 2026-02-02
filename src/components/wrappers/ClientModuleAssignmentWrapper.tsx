@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/appStore';
-import { ModuleAssignment } from '../ModuleAssignment';
+import { EntityModuleAssignment } from '../EntityModuleAssignment';
 
 export function ClientModuleAssignmentWrapper() {
   const { clientId } = useParams();
@@ -16,27 +16,27 @@ export function ClientModuleAssignmentWrapper() {
   const client = clients.find((c) => c.client_id === clientId);
 
   if (!client) {
-    return <div className="p-8">Client not found</div>;
+    return <div className="p-8 text-gray-900 dark:text-white">Client not found</div>;
   }
 
-  const handleConfigureModule = (clientId: string, moduleId: string) => {
-    navigate(`/clients/${clientId}/modules/${moduleId}/config`);
-  };
-
-  const handleBack = () => {
-    navigate('/clients');
+  const entity = {
+    id: client.client_id,
+    name: client.name,
+    modules: client.modules,
   };
 
   return (
-    <ModuleAssignment
-      client={client}
+    <EntityModuleAssignment
+      entity={entity}
+      entityType="client"
       masterModules={masterModules}
       onAssignModule={assignClientModule}
       onUnassignModule={unassignClientModule}
       onToggleActive={toggleClientModuleActive}
       onUpdatePrompt={updateClientModulePrompt}
-      onConfigureModule={handleConfigureModule}
-      onBack={handleBack}
+      onConfigureModule={(clientId, moduleId) => navigate(`/clients/${clientId}/modules/${moduleId}/config`)}
+      onBack={() => navigate('/clients')}
+      subtitle={`Client ID: ${client.client_id} | Project ID: ${client.project_id}`}
     />
   );
 }

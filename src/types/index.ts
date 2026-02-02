@@ -1,5 +1,3 @@
-// Type definitions for the Modular Analytics Management System
-
 export type FieldType = 'text' | 'textarea' | 'number' | 'checkbox' | 'select' | 'multi-select' | 'date' | 'json';
 
 export interface ConfigSchemaField {
@@ -42,13 +40,19 @@ export interface Client {
 }
 
 export interface MasterModule {
-  id: number;
+  id: string;
   name: string;
   query_name: string;
   tab: string;
   description: string;
   config_schema: ConfigSchemaField[];
   metrics: string[];
+}
+
+export interface ModuleAssignableEntity {
+  id: string;
+  name: string;
+  modules: Record<string, ModuleInstance>;
 }
 
 export interface AppState {
