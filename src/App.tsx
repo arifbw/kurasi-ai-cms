@@ -1,8 +1,6 @@
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'sonner';
 import { useShallow } from 'zustand/react/shallow';
-import { useAppStore } from './stores/appStore';
-import { useAuthStore } from './stores/authStore';
+import { useAuthStore, useModuleStore, useSectorStore, useClientStore, exportState, importState, clearState, deleteModuleCascade } from './stores';
 import { useDarkMode } from './hooks';
 import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
@@ -20,7 +18,14 @@ import {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const checkAuth = useAuthStore((state) => state.checkAuth);
-  return checkAuth() ? <>{children}</> : <Navigate to="/login" replace />;
+  const refreshSessionIfActive = useAuthStore((state) => state.refreshSessionIfActive);
+
+  const isAuthenticated = checkAuth();
+  if (isAuthenticated) {
+    refreshSessionIfActive();
+  }
+
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
 export default function App() {
@@ -36,37 +41,39 @@ export default function App() {
     }))
   );
 
-  const { sectors, clients, masterModules } = useAppStore(
+  const masterModules = useModuleStore((state) => state.masterModules);
+  const sectors = useSectorStore((state) => state.sectors);
+  const clients = useClientStore((state) => state.clients);
+
+  const moduleActions = useModuleStore(
     useShallow((state) => ({
-      sectors: state.sectors,
-      clients: state.clients,
-      masterModules: state.masterModules,
+      addModule: state.addModule,
+      updateModule: state.updateModule,
     }))
   );
 
-  const actions = useAppStore(
+  const sectorActions = useSectorStore(
     useShallow((state) => ({
       addSector: state.addSector,
       updateSector: state.updateSector,
       deleteSector: state.deleteSector,
-      addClient: state.addClient,
-      updateClient: state.updateClient,
-      deleteClient: state.deleteClient,
-      addModule: state.addModule,
-      updateModule: state.updateModule,
-      deleteModule: state.deleteModule,
-      exportState: state.exportState,
-      importState: state.importState,
-      clearState: state.clearState,
     }))
   );
 
-  const handleLogin = (username: string, password: string) => {
-    if (login(username, password)) {
+  const clientActions = useClientStore(
+    useShallow((state) => ({
+      addClient: state.addClient,
+      updateClient: state.updateClient,
+      deleteClient: state.deleteClient,
+    }))
+  );
+
+  const handleLogin = async (username: string, password: string): Promise<boolean> => {
+    const success = await login(username, password);
+    if (success) {
       navigate('/dashboard');
-    } else {
-      toast.error('Invalid credentials');
     }
+    return success;
   };
 
   const handleLogout = () => {
@@ -115,9 +122,9 @@ export default function App() {
                 <Route path="/sectors" element={
                   <SectorManagement
                     sectors={sectors}
-                    onAdd={actions.addSector}
-                    onUpdate={actions.updateSector}
-                    onDelete={actions.deleteSector}
+                    onAdd={sectorActions.addSector}
+                    onUpdate={sectorActions.updateSector}
+                    onDelete={sectorActions.deleteSector}
                     onManageModules={navigateToSectorAssignment}
                   />
                 } />
@@ -129,9 +136,9 @@ export default function App() {
                   <ClientManagement
                     clients={clients}
                     sectors={sectors}
-                    onAdd={actions.addClient}
-                    onUpdate={actions.updateClient}
-                    onDelete={actions.deleteClient}
+                    onAdd={clientActions.addClient}
+                    onUpdate={clientActions.updateClient}
+                    onDelete={clientActions.deleteClient}
                     onManageModules={navigateToClientAssignment}
                   />
                 } />
@@ -142,17 +149,17 @@ export default function App() {
                 <Route path="/modules" element={
                   <MasterModuleManagement
                     modules={masterModules}
-                    onAdd={actions.addModule}
-                    onUpdate={actions.updateModule}
-                    onDelete={actions.deleteModule}
+                    onAdd={moduleActions.addModule}
+                    onUpdate={moduleActions.updateModule}
+                    onDelete={deleteModuleCascade}
                   />
                 } />
 
                 <Route path="/debug" element={
                   <DebugExport
-                    onExport={actions.exportState}
-                    onImport={actions.importState}
-                    onClear={actions.clearState}
+                    onExport={exportState}
+                    onImport={importState}
+                    onClear={clearState}
                   />
                 } />
               </Routes>

@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 import { Client, Sector } from '../types';
 import { Pencil, Trash2, Plus, Settings, Search, Upload, X } from 'lucide-react';
+import { validateClientForm } from '../utils/validation';
 
 interface ClientManagementProps {
   clients: Client[];
@@ -63,32 +64,18 @@ export function ClientManagement({
   };
 
   const validateForm = (): string | null => {
-    const name = formData.name.trim();
-    const category = formData.category.trim();
-
-    if (!name || name.length < 2) {
-      return 'Name must be at least 2 characters';
-    }
-    if (name.length > 100) {
-      return 'Name must be less than 100 characters';
-    }
-    if (!category) {
-      return 'Please select a data source';
-    }
-    if (formData.project_id <= 0) {
-      return 'Project ID must be a positive number';
-    }
-
-    if (!editingClient) {
-      const isDuplicate = clients.some(
-        (c) => c.name.toLowerCase() === name.toLowerCase()
-      );
-      if (isDuplicate) {
-        return 'A client with this name already exists';
-      }
-    }
-
-    return null;
+    const result = validateClientForm(
+      {
+        name: formData.name,
+        project_id: formData.project_id,
+        category: formData.category,
+        sector_id: formData.sector_id,
+        logo: formData.logo,
+      },
+      clients,
+      !!editingClient
+    );
+    return result.valid ? null : result.error || null;
   };
 
   const handleSubmit = (e: React.FormEvent) => {

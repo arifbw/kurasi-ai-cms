@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Client, MasterModule } from '../types';
+import { Client, MasterModule, ModuleConfigValue, ConfigFieldValue } from '../types';
 
 interface ModuleConfigurationProps {
   client: Client;
   module: MasterModule;
-  onSave: (clientId: string, moduleId: string, configValues: Record<string, any>) => void;
+  onSave: (clientId: string, moduleId: string, configValues: ModuleConfigValue) => void;
   onBack: () => void;
 }
 
@@ -15,7 +15,7 @@ export function ModuleConfiguration({
   onBack
 }: ModuleConfigurationProps) {
   const moduleInstance = client.modules[module.id.toString()];
-  const [configValues, setConfigValues] = useState<Record<string, any>>(
+  const [configValues, setConfigValues] = useState<ModuleConfigValue>(
     moduleInstance?.config_values || {}
   );
 
@@ -35,7 +35,7 @@ export function ModuleConfiguration({
     onSave(client.client_id, module.id.toString(), configValues);
   };
 
-  const handleFieldChange = (fieldId: string, value: any) => {
+  const handleFieldChange = (fieldId: string, value: ConfigFieldValue) => {
     setConfigValues({ ...configValues, [fieldId]: value });
   };
 

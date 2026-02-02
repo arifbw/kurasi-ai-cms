@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 import { Sector } from '../types';
 import { Pencil, Trash2, Plus, Settings, Search } from 'lucide-react';
+import { validateSectorForm } from '../utils/validation';
 
 interface SectorManagementProps {
   sectors: Sector[];
@@ -31,33 +32,16 @@ export function SectorManagement({
   });
 
   const validateForm = (): string | null => {
-    const name = formData.name.trim();
-    const description = formData.description.trim();
-    const category = formData.category.trim();
-
-    if (!name || name.length < 2) {
-      return 'Name must be at least 2 characters';
-    }
-    if (name.length > 100) {
-      return 'Name must be less than 100 characters';
-    }
-    if (!description || description.length < 3) {
-      return 'Description must be at least 3 characters';
-    }
-    if (!category) {
-      return 'Please select a data source';
-    }
-
-    if (!editingSector) {
-      const isDuplicate = sectors.some(
-        (s) => s.name.toLowerCase() === name.toLowerCase() && s.category === category
-      );
-      if (isDuplicate) {
-        return 'A sector with this name and data source already exists';
-      }
-    }
-
-    return null;
+    const result = validateSectorForm(
+      {
+        name: formData.name,
+        description: formData.description,
+        category: formData.category,
+      },
+      sectors,
+      !!editingSector
+    );
+    return result.valid ? null : result.error || null;
   };
 
   const handleSubmit = (e: React.FormEvent) => {

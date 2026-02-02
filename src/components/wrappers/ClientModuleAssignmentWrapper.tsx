@@ -1,17 +1,17 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAppStore } from '../../stores/appStore';
+import { useClientStore, useModuleStore } from '../../stores';
 import { EntityModuleAssignment } from '../EntityModuleAssignment';
 
 export function ClientModuleAssignmentWrapper() {
   const { clientId } = useParams();
   const navigate = useNavigate();
 
-  const clients = useAppStore((state) => state.clients);
-  const masterModules = useAppStore((state) => state.masterModules);
-  const assignClientModule = useAppStore((state) => state.assignClientModule);
-  const unassignClientModule = useAppStore((state) => state.unassignClientModule);
-  const toggleClientModuleActive = useAppStore((state) => state.toggleClientModuleActive);
-  const updateClientModulePrompt = useAppStore((state) => state.updateClientModulePrompt);
+  const clients = useClientStore((state) => state.clients);
+  const masterModules = useModuleStore((state) => state.masterModules);
+  const assignClientModule = useClientStore((state) => state.assignClientModule);
+  const unassignClientModule = useClientStore((state) => state.unassignClientModule);
+  const toggleClientModuleActive = useClientStore((state) => state.toggleClientModuleActive);
+  const updateClientModulePrompt = useClientStore((state) => state.updateClientModulePrompt);
 
   const client = clients.find((c) => c.client_id === clientId);
 

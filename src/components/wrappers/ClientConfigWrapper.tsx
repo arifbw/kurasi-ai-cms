@@ -1,15 +1,16 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAppStore } from '../../stores/appStore';
+import { useClientStore, useSectorStore, useModuleStore } from '../../stores';
 import { ModuleConfigEditor } from '../ModuleConfigEditor';
+import { ModuleConfigValue } from '../../types';
 
 export function ClientConfigWrapper() {
   const { clientId, moduleId } = useParams();
   const navigate = useNavigate();
 
-  const clients = useAppStore((state) => state.clients);
-  const sectors = useAppStore((state) => state.sectors);
-  const masterModules = useAppStore((state) => state.masterModules);
-  const updateClientModuleConfig = useAppStore((state) => state.updateClientModuleConfig);
+  const clients = useClientStore((state) => state.clients);
+  const sectors = useSectorStore((state) => state.sectors);
+  const masterModules = useModuleStore((state) => state.masterModules);
+  const updateClientModuleConfig = useClientStore((state) => state.updateClientModuleConfig);
 
   const client = clients.find((c) => c.client_id === clientId);
   const masterModule = masterModules.find((m) => m.id.toString() === moduleId);
@@ -22,7 +23,7 @@ export function ClientConfigWrapper() {
     return <div className="p-8">Client or Module not found</div>;
   }
 
-  const handleSave = (configValues: Record<string, any>, isOverride?: boolean) => {
+  const handleSave = (configValues: ModuleConfigValue, isOverride?: boolean) => {
     updateClientModuleConfig(clientId!, moduleId!, configValues, isOverride);
     navigate(`/clients/${clientId}/modules`);
   };

@@ -1,17 +1,25 @@
 export type FieldType = 'text' | 'textarea' | 'number' | 'checkbox' | 'select' | 'multi-select' | 'date' | 'json';
 
+export type ConfigFieldValue =
+  | string          
+  | number          
+  | boolean     
+  | string[]      
+  | Record<string, unknown>  
+  | null;
+
 export interface ConfigSchemaField {
   name: string;
   label: string;
   type: FieldType;
   required: boolean;
-  default?: any;
+  default?: ConfigFieldValue;
   options?: string[];
   description?: string;
 }
 
 export interface ModuleConfigValue {
-  [fieldName: string]: any;
+  [fieldName: string]: ConfigFieldValue;
 }
 
 export interface ModuleInstance {

@@ -1,17 +1,17 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAppStore } from '../../stores/appStore';
+import { useSectorStore, useModuleStore } from '../../stores';
 import { EntityModuleAssignment } from '../EntityModuleAssignment';
 
 export function SectorModuleAssignmentWrapper() {
   const { sectorId } = useParams();
   const navigate = useNavigate();
 
-  const sectors = useAppStore((state) => state.sectors);
-  const masterModules = useAppStore((state) => state.masterModules);
-  const assignSectorModule = useAppStore((state) => state.assignSectorModule);
-  const unassignSectorModule = useAppStore((state) => state.unassignSectorModule);
-  const toggleSectorModuleActive = useAppStore((state) => state.toggleSectorModuleActive);
-  const updateSectorModulePrompt = useAppStore((state) => state.updateSectorModulePrompt);
+  const sectors = useSectorStore((state) => state.sectors);
+  const masterModules = useModuleStore((state) => state.masterModules);
+  const assignSectorModule = useSectorStore((state) => state.assignSectorModule);
+  const unassignSectorModule = useSectorStore((state) => state.unassignSectorModule);
+  const toggleSectorModuleActive = useSectorStore((state) => state.toggleSectorModuleActive);
+  const updateSectorModulePrompt = useSectorStore((state) => state.updateSectorModulePrompt);
 
   const sector = sectors.find((s) => s.id === sectorId);
 

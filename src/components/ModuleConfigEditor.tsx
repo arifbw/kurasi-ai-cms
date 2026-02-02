@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Client, Sector, MasterModule, ConfigSchemaField, ModuleConfigValue } from '../types';
+import { Client, Sector, MasterModule, ConfigSchemaField, ModuleConfigValue, ConfigFieldValue } from '../types';
 import { Save, AlertCircle, Copy } from 'lucide-react';
 
 interface ModuleConfigEditorProps {
@@ -70,7 +70,7 @@ export function ModuleConfigEditor({
     }
   };
 
-  const handleFieldChange = (fieldName: string, value: any, fieldType: string) => {
+  const handleFieldChange = (fieldName: string, value: ConfigFieldValue, fieldType: string) => {
     // Validate JSON fields
     if (fieldType === 'json') {
       try {
