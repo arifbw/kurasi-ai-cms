@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'sonner';
 import { Sector } from '../types';
-import { Pencil, Trash2, Plus, Settings, Search, Delete, Trash } from 'lucide-react';
+import { Pencil, Trash2, Plus, Settings, Search } from 'lucide-react';
 
 interface SectorManagementProps {
   sectors: Sector[];
@@ -22,7 +24,7 @@ export function SectorManagement({
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<{ [key: string]: boolean }>({});
   const [formData, setFormData] = useState({
-    id: `sector_${Date.now()}`,
+    id: '',
     name: '',
     description: '',
     category: ''
@@ -30,24 +32,26 @@ export function SectorManagement({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (editingSector) {
       onUpdate(editingSector.id, {
         name: formData.name,
         description: formData.description,
         category: formData.category
       });
+      toast.success('Sector updated successfully');
     } else {
       const newSector: Sector = {
-        id: formData.id,
+        id: `sector_${uuidv4()}`,
         name: formData.name,
         description: formData.description,
         category: formData.category,
         modules: {}
       };
       onAdd(newSector);
+      toast.success('Sector created successfully');
     }
-    
+
     closeModal();
   };
 
@@ -62,7 +66,7 @@ export function SectorManagement({
       });
     } else {
       setEditingSector(null);
-      setFormData({ id: `sector_${Date.now()}`, name: '', description: '' });
+      setFormData({ id: '', name: '', description: '', category: '' });
     }
     setIsModalOpen(true);
   };
@@ -77,25 +81,34 @@ export function SectorManagement({
     setExpandedGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }));
   };
 
-  // Filter sectors based on search query
-  const filteredSectors = sectors.filter(sector => {
+  const handleDelete = (sector: Sector) => {
+    if (confirm(`Delete sector "${sector.name}"?`)) {
+      onDelete(sector.id);
+      toast.success('Sector deleted successfully');
+    }
+  };
+
+  // Filter sectors based on search query - memoized
+  const filteredSectors = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    return (
+    return sectors.filter(sector =>
       sector.name.toLowerCase().includes(query) ||
       sector.description.toLowerCase().includes(query) ||
       sector.category.toLowerCase().includes(query)
     );
-  });
+  }, [sectors, searchQuery]);
 
-  // Group sectors by name
-  const groupedSectors = filteredSectors.reduce<{ [key: string]: Sector[] }>((groups, sector) => {
-    const groupKey = sector.name;
-    if (!groups[groupKey]) {
-      groups[groupKey] = [];
-    }
-    groups[groupKey].push(sector);
-    return groups;
-  }, {});
+  // Group sectors by name - memoized
+  const groupedSectors = useMemo(() => {
+    return filteredSectors.reduce<{ [key: string]: Sector[] }>((groups, sector) => {
+      const groupKey = sector.name;
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(sector);
+      return groups;
+    }, {});
+  }, [filteredSectors]);
 
   return (
     <div className="p-6">
@@ -147,7 +160,7 @@ export function SectorManagement({
             </tr>
           </thead>
           <tbody>
-            {Object.entries(groupedSectors).map(([groupKey, sectors]) => (
+            {Object.entries(groupedSectors).map(([groupKey, groupSectors]) => (
               <React.Fragment key={groupKey}>
                 <tr
                   className="border-b hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
@@ -157,34 +170,30 @@ export function SectorManagement({
                     {groupKey}
                   </td>
                   <td className="px-6 py-4">
-                    {sectors.length > 1 ? `${sectors.length} data sources` : sectors[0].category}
+                    {groupSectors.length > 1 ? `${groupSectors.length} data sources` : groupSectors[0].category}
                   </td>
                   <td className="px-6 py-4">
-                    {sectors.length > 1 ? '-' : sectors[0].description}
+                    {groupSectors.length > 1 ? '-' : groupSectors[0].description}
                   </td>
                   <td className="px-6 py-4">
-                    {sectors.length > 1 ? '🔽 Click to Expand' : (
+                    {groupSectors.length > 1 ? '🔽 Click to Expand' : (
                       <div className="flex gap-2">
                         <button
-                          onClick={() => onManageModules(sectors[0].id)}
+                          onClick={(e) => { e.stopPropagation(); onManageModules(groupSectors[0].id); }}
                           className="p-2 text-purple-600 hover:bg-purple-50 rounded"
                           title="Manage Modules"
                         >
                           <Settings className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => openModal(sectors[0])}
+                          onClick={(e) => { e.stopPropagation(); openModal(groupSectors[0]); }}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded"
                           title="Edit"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm(`Delete sector "${sectors[0].name}"?`)) {
-                              onDelete(sectors[0].id);
-                            }
-                          }}
+                          onClick={(e) => { e.stopPropagation(); handleDelete(groupSectors[0]); }}
                           className="p-2 text-red-600 hover:bg-red-50 rounded"
                           title="Delete"
                         >
@@ -194,7 +203,7 @@ export function SectorManagement({
                     )}
                   </td>
                 </tr>
-                {expandedGroups[groupKey] && sectors.length > 1 && sectors.map((sector, index) => (
+                {expandedGroups[groupKey] && groupSectors.length > 1 && groupSectors.map((sector, index) => (
                   <tr key={sector.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 pl-10 text-gray-600">
                       {index + 1}. {sector.category}
@@ -218,11 +227,7 @@ export function SectorManagement({
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm(`Delete sector "${sector.name}"?`)) {
-                              onDelete(sector.id);
-                            }
-                          }}
+                          onClick={() => handleDelete(sector)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded"
                           title="Delete"
                         >
@@ -256,19 +261,6 @@ export function SectorManagement({
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   required
                   placeholder="Sector Name"
-                />
-              </div>
-              <div>
-                {/* <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">
-                  Sector ID
-                </label> */}
-                <input
-                  type="hidden"
-                  value={formData.id}
-                  onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  required
-                  placeholder="Unique Sector ID"
                 />
               </div>
               <div>

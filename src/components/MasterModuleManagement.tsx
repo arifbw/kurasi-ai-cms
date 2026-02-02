@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'sonner';
 import { MasterModule, ConfigSchemaField, FieldType } from '../types';
 import { Pencil, Trash2, Plus, ChevronDown, ChevronUp, Search } from 'lucide-react';
 
@@ -9,11 +11,11 @@ interface MasterModuleManagementProps {
   onDelete: (moduleId: number) => void;
 }
 
-export function MasterModuleManagement({ 
-  modules, 
-  onAdd, 
-  onUpdate, 
-  onDelete 
+export function MasterModuleManagement({
+  modules,
+  onAdd,
+  onUpdate,
+  onDelete
 }: MasterModuleManagementProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingModule, setEditingModule] = useState<MasterModule | null>(null);
@@ -31,12 +33,13 @@ export function MasterModuleManagement({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (editingModule) {
       onUpdate(editingModule.id, formData);
+      toast.success('Module updated successfully');
     } else {
       const newModule: MasterModule = {
-        id: Date.now(),
+        id: Date.now(), // Keep numeric ID for MasterModule as it's used in the type
         name: formData.name || '',
         query_name: formData.query_name || '',
         tab: formData.tab || '',
@@ -45,8 +48,9 @@ export function MasterModuleManagement({
         config_schema: formData.config_schema || []
       };
       onAdd(newModule);
+      toast.success('Module created successfully');
     }
-    
+
     closeModal();
   };
 
@@ -77,7 +81,7 @@ export function MasterModuleManagement({
 
   const addField = () => {
     const newField: ConfigSchemaField = {
-      name: `field_${Date.now()}`,
+      name: `field_${uuidv4().slice(0, 8)}`,
       label: 'New Field',
       type: 'text',
       required: false,
@@ -96,8 +100,7 @@ export function MasterModuleManagement({
   };
 
   const removeField = (index: number) => {
-    const newSchema = [...(formData.config_schema || [])];
-    newSchema.splice(index, 1);
+    const newSchema = (formData.config_schema || []).filter((_, i) => i !== index);
     setFormData({ ...formData, config_schema: newSchema });
   };
 
@@ -107,17 +110,23 @@ export function MasterModuleManagement({
     setFormData({ ...formData, metrics });
   };
 
-  // Filter modules based on search query
-  const filteredModules = modules.filter(module => {
+  const handleDelete = (module: MasterModule) => {
+    if (confirm(`Delete module "${module.name}"?`)) {
+      onDelete(module.id);
+      toast.success('Module deleted successfully');
+    }
+  };
+
+  const filteredModules = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    return (
+    return modules.filter(module =>
       module.name.toLowerCase().includes(query) ||
       module.query_name.toLowerCase().includes(query) ||
       module.tab.toLowerCase().includes(query) ||
       module.description.toLowerCase().includes(query) ||
       module.metrics.some(metric => metric.toLowerCase().includes(query))
     );
-  });
+  }, [modules, searchQuery]);
 
   return (
     <div className="p-6">
@@ -205,18 +214,14 @@ export function MasterModuleManagement({
                     <Pencil className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm(`Delete module "${module.name}"?`)) {
-                        onDelete(module.id);
-                      }
-                    }}
+                    onClick={() => handleDelete(module)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-              
+
               {expandedModule === module.id && (
                 <div className="border-t p-4 bg-gray-50">
                   <h4 className="mb-3">Configuration Schema</h4>
@@ -374,7 +379,7 @@ export function MasterModuleManagement({
                           <input
                             type="text"
                             value={(field.options || []).join(', ')}
-                            onChange={(e) => updateField(idx, { 
+                            onChange={(e) => updateField(idx, {
                               options: e.target.value.split(',').map(o => o.trim()).filter(o => o)
                             })}
                             className="w-full px-2 py-1 border rounded text-sm"

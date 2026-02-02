@@ -1,4 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'sonner';
 import { Client, Sector } from '../types';
 import { Pencil, Trash2, Plus, Settings, Search, Upload, X } from 'lucide-react';
 
@@ -11,20 +13,20 @@ interface ClientManagementProps {
   onManageModules: (clientId: string) => void;
 }
 
-export function ClientManagement({ 
+export function ClientManagement({
   clients,
   sectors,
-  onAdd, 
-  onUpdate, 
+  onAdd,
+  onUpdate,
   onDelete,
-  onManageModules 
+  onManageModules
 }: ClientManagementProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [formData, setFormData] = useState({
-    client_id: `client_${Date.now()}`, // Automated client_id
+    client_id: '',
     name: '',
     project_id: 0,
     category: '',
@@ -37,11 +39,11 @@ export function ClientManagement({
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
+        toast.error('Please select an image file');
         return;
       }
       if (file.size > 2 * 1024 * 1024) {
-        alert('File size must be less than 2MB');
+        toast.error('File size must be less than 2MB');
         return;
       }
 
@@ -71,9 +73,10 @@ export function ClientManagement({
         sector_id: formData.sector_id,
         logo: formData.logo || undefined
       });
+      toast.success('Client updated successfully');
     } else {
       const newClient: Client = {
-        client_id: formData.client_id,
+        client_id: `client_${uuidv4()}`,
         name: formData.name,
         project_id: formData.project_id,
         category: formData.category,
@@ -82,6 +85,7 @@ export function ClientManagement({
         modules: {}
       };
       onAdd(newClient);
+      toast.success('Client created successfully');
     }
 
     closeModal();
@@ -100,7 +104,7 @@ export function ClientManagement({
       });
     } else {
       setEditingClient(null);
-      setFormData({ client_id: `client_${Date.now()}`, name: '', project_id: '', category: '', sector_id: '', logo: '' });
+      setFormData({ client_id: '', name: '', project_id: 0, category: '', sector_id: '', logo: '' });
     }
     setIsModalOpen(true);
   };
@@ -118,25 +122,41 @@ export function ClientManagement({
     setExpandedGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }));
   };
 
-  // Filter clients based on search query
-  const filteredClients = clients.filter(client => {
+  const handleDelete = (client: Client) => {
+    if (confirm(`Delete client "${client.name}"?`)) {
+      onDelete(client.client_id);
+      toast.success('Client deleted successfully');
+    }
+  };
+
+  const filteredClients = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    return (
+    return clients.filter(client =>
       client.client_id.toLowerCase().includes(query) ||
       client.name.toLowerCase().includes(query) ||
       client.category?.toLowerCase().includes(query) ||
       client.project_id.toString().includes(query)
     );
-  });
+  }, [clients, searchQuery]);
 
-  const groupedClients = filteredClients.reduce((groups, client) => {
-    const groupKey = `${client.name}-${client.project_id}`;
-    if (!groups[groupKey]) {
-      groups[groupKey] = [];
-    }
-    groups[groupKey].push(client);
-    return groups;
-  }, {} as Record<string, Client[]>);
+  const groupedClients = useMemo(() => {
+    return filteredClients.reduce((groups, client) => {
+      const groupKey = `${client.name}-${client.project_id}`;
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(client);
+      return groups;
+    }, {} as Record<string, Client[]>);
+  }, [filteredClients]);
+
+  const filteredSectors = useMemo(() => {
+    return sectors.filter(sector =>
+      formData.category === 'medsos' ? sector.category === 'medsos' :
+      formData.category === 'medkon' ? sector.category === 'medkon' :
+      sector.category === 'others'
+    );
+  }, [sectors, formData.category]);
 
   return (
     <div className="p-6">
@@ -193,17 +213,17 @@ export function ClientManagement({
             </tr>
           </thead>
           <tbody>
-            {Object.entries(groupedClients).map(([groupKey, clients]) => (
+            {Object.entries(groupedClients).map(([groupKey, groupClients]) => (
               <React.Fragment key={groupKey}>
                 <tr
                   className="border-b hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                   onClick={() => toggleGroup(groupKey)}
                 >
                   <td className="px-6 py-4">
-                    {clients[0].logo ? (
+                    {groupClients[0].logo ? (
                       <img
-                        src={clients[0].logo}
-                        alt={`${clients[0].name} logo`}
+                        src={groupClients[0].logo}
+                        alt={`${groupClients[0].name} logo`}
                         className="w-10 h-10 object-contain rounded"
                       />
                     ) : (
@@ -213,41 +233,36 @@ export function ClientManagement({
                     )}
                   </td>
                   <td className="px-6 py-4 font-semibold">
-                    {clients[0].name}
+                    {groupClients[0].name}
                   </td>
                   <td className="px-6 py-4">
-                    {clients[0].project_id}
+                    {groupClients[0].project_id}
                   </td>
                   <td className="px-6 py-4">
-                    {clients.length > 1 ? `${clients.length} data sources` : clients[0].category}
+                    {groupClients.length > 1 ? `${groupClients.length} data sources` : groupClients[0].category}
                   </td>
                   <td className="px-6 py-4">
-                    {clients.length > 1 ? '-' : `${Object.keys(clients[0].modules).length} assigned`}
+                    {groupClients.length > 1 ? '-' : `${Object.keys(groupClients[0].modules).length} assigned`}
                   </td>
                   <td className="px-6 py-4">
-                    {clients.length > 1 ? 'Click to Expand' : (
+                    {groupClients.length > 1 ? 'Click to Expand' : (
                       <div className="flex gap-2">
                         <button
-                          onClick={(e) => { e.stopPropagation(); onManageModules(clients[0].client_id); }}
+                          onClick={(e) => { e.stopPropagation(); onManageModules(groupClients[0].client_id); }}
                           className="p-2 text-purple-600 hover:bg-purple-50 rounded"
                           title="Manage Modules"
                         >
                           <Settings className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); openModal(clients[0]); }}
+                          onClick={(e) => { e.stopPropagation(); openModal(groupClients[0]); }}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded"
                           title="Edit"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(`Delete client "${clients[0].name}"?`)) {
-                              onDelete(clients[0].client_id);
-                            }
-                          }}
+                          onClick={(e) => { e.stopPropagation(); handleDelete(groupClients[0]); }}
                           className="p-2 text-red-600 hover:bg-red-50 rounded"
                           title="Delete"
                         >
@@ -257,7 +272,7 @@ export function ClientManagement({
                     )}
                   </td>
                 </tr>
-                {expandedGroups[groupKey] && clients.length > 1 && clients.map((client, index) => (
+                {expandedGroups[groupKey] && groupClients.length > 1 && groupClients.map((client, index) => (
                   <tr key={client.client_id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 pl-10">
                       {client.logo ? (
@@ -299,11 +314,7 @@ export function ClientManagement({
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm(`Delete client "${client.name}"?`)) {
-                              onDelete(client.client_id);
-                            }
-                          }}
+                          onClick={() => handleDelete(client)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded"
                           title="Delete"
                         >
@@ -326,8 +337,6 @@ export function ClientManagement({
               {editingClient ? 'Edit Client' : 'Add New Client'}
             </h2>
             <form onSubmit={handleSubmit}>
-              {/* Removed Client ID input field */}
-              <input type="hidden" className="w-full px-3 py-2 border rounded-lg" value={formData.client_id} />
               <div className="mb-4">
                 <label className="block text-gray-700 mb-2">
                   Name
@@ -347,8 +356,9 @@ export function ClientManagement({
                 </label>
                 <input
                   placeholder="Client ID"
-                  value={formData.project_id}
-                  onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
+                  type="number"
+                  value={formData.project_id || ''}
+                  onChange={(e) => setFormData({ ...formData, project_id: parseInt(e.target.value) || 0 })}
                   className="w-full px-3 py-2 border rounded-lg"
                   required
                 />
@@ -359,7 +369,7 @@ export function ClientManagement({
                 </label>
                 <select
                   value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value, sector_id: '' })}
                   className="w-full px-3 py-2 border rounded-lg"
                 >
                   <option value="">Select a Data Source</option>
@@ -378,18 +388,11 @@ export function ClientManagement({
                   className="w-full px-3 py-2 border rounded-lg"
                 >
                   <option value="">Select a sector</option>
-                  {/* only show sectors with category 'medsos', 'medkon', or 'others' depends on formData.category */}
-                  {sectors
-                    .filter(sector =>
-                      formData.category === 'medsos' ? sector.category === 'medsos' :
-                      formData.category === 'medkon' ? sector.category === 'medkon' :
-                      sector.category === 'others'
-                    )
-                    .map(sector => (
-                      <option key={sector.id} value={sector.id}>
-                        {sector.name}
-                      </option>
-                    ))}
+                  {filteredSectors.map(sector => (
+                    <option key={sector.id} value={sector.id}>
+                      {sector.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="mb-6">

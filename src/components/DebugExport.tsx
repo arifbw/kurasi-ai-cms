@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Download, Upload, Trash2, Save } from 'lucide-react';
+import { toast } from 'sonner';
+import { API_ENDPOINTS } from '../config/api';
 
 interface DebugExportProps {
   onExport: () => string;
@@ -9,7 +11,6 @@ interface DebugExportProps {
 
 export function DebugExport({ onExport, onImport, onClear }: DebugExportProps) {
   const [importText, setImportText] = useState('');
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleExport = () => {
     const data = onExport();
@@ -20,85 +21,72 @@ export function DebugExport({ onExport, onImport, onClear }: DebugExportProps) {
     a.download = `analytics-system-export-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-
-    setMessage({ type: 'success', text: 'Data exported successfully!' });
-    setTimeout(() => setMessage(null), 3000);
+    toast.success('Data exported successfully!');
   };
 
   const handleImport = () => {
     if (!importText.trim()) {
-      setMessage({ type: 'error', text: 'Please paste JSON data to import' });
-      setTimeout(() => setMessage(null), 3000);
+      toast.error('Please paste JSON data to import');
       return;
     }
 
     const success = onImport(importText);
     if (success) {
-      setMessage({ type: 'success', text: 'Data imported successfully! Reload the page to see changes.' });
+      toast.success('Data imported successfully!');
       setImportText('');
     } else {
-      setMessage({ type: 'error', text: 'Failed to import data. Please check the JSON format.' });
+      toast.error('Failed to import data. Please check the JSON format.');
     }
-    setTimeout(() => setMessage(null), 5000);
   };
 
   const handleClear = () => {
     if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
       onClear();
-      setMessage({ type: 'success', text: 'All data cleared successfully!' });
-      setTimeout(() => setMessage(null), 3000);
+      toast.success('All data cleared successfully!');
     }
   };
 
   const handleCopyToClipboard = () => {
     const data = onExport();
     navigator.clipboard.writeText(data).then(() => {
-      setMessage({ type: 'success', text: 'JSON copied to clipboard!' });
-      setTimeout(() => setMessage(null), 3000);
+      toast.success('JSON copied to clipboard!');
     });
   };
 
-  const handleSaveToServer = () => {
+  const handleSaveToServer = async () => {
     const data = onExport();
-    fetch('http://154.26.134.72:5678/webhook/cms-kurasi-ai/save-data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: data,
-    }).then(response => {
-      if (response.ok) {
-        setMessage({ type: 'success', text: 'Data saved to server successfully!' });
-      } else {
-        setMessage({ type: 'error', text: 'Failed to save data to server.' });
-      }
-      setTimeout(() => setMessage(null), 3000);
-    }).catch(() => {
-      setMessage({ type: 'error', text: 'Network error while saving data to server.' });
-      setTimeout(() => setMessage(null), 3000);
-    });
-  }
-
-  const handleImportFromServer = () => {
-    // implement like in handleImport but fetch data from server
-    fetch('http://154.26.134.72:5678/webhook/cms-kurasi-ai/get-data')
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Failed to load data from server.');
-        }
-        return response.json();
-      })
-      .then(data => {
-        const success = onImport(JSON.stringify(data[0].data));
-        if (success) {
-          setMessage({ type: 'success', text: 'Data loaded from server successfully! Reload the page to see changes.' });
-        } else {
-          setMessage({ type: 'error', text: 'Failed to import data from server.' });
-        }
-        setTimeout(() => setMessage(null), 5000);
-      })
-      .catch(() => {
-        setMessage({ type: 'error', text: 'Network error while loading data from server.' });
-        setTimeout(() => setMessage(null), 3000);
+    try {
+      const response = await fetch(API_ENDPOINTS.saveData, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: data,
       });
+      if (response.ok) {
+        toast.success('Data saved to server successfully!');
+      } else {
+        toast.error('Failed to save data to server.');
+      }
+    } catch {
+      toast.error('Network error while saving data to server.');
+    }
+  };
+
+  const handleImportFromServer = async () => {
+    try {
+      const response = await fetch(API_ENDPOINTS.getData);
+      if (!response.ok) {
+        throw new Error('Failed to load data from server.');
+      }
+      const data = await response.json();
+      const success = onImport(JSON.stringify(data[0].data));
+      if (success) {
+        toast.success('Data loaded from server successfully!');
+      } else {
+        toast.error('Failed to import data from server.');
+      }
+    } catch {
+      toast.error('Network error while loading data from server.');
+    }
   };
 
   return (
@@ -107,15 +95,6 @@ export function DebugExport({ onExport, onImport, onClear }: DebugExportProps) {
         <h1 className="mb-2">Debug & Export</h1>
         <p className="text-gray-600">Export, import, or clear your application data</p>
       </div>
-
-      {message && (
-        <div className={`mb-6 p-4 rounded-lg ${message.type === 'success'
-            ? 'bg-green-50 text-green-800 border border-green-200'
-            : 'bg-red-50 text-red-800 border border-red-200'
-          }`}>
-          {message.text}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Export Section */}
@@ -170,7 +149,7 @@ export function DebugExport({ onExport, onImport, onClear }: DebugExportProps) {
           </button>
           <button
             onClick={handleImportFromServer}
-            className="w-full mt-3 border border-gray-300 px-4 py-2 mt-2 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
+            className="w-full mt-3 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
           >
             <Upload className="w-4 h-4" />
             Load data from server

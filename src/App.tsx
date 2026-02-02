@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAppStore } from './stores/appStore';
 import { useAuthStore } from './stores/authStore';
 import { Login } from './components/Login';
@@ -61,7 +62,7 @@ export default function App() {
     if (login(username, password)) {
       navigate('/dashboard');
     } else {
-      alert('Invalid credentials. Please use admin/admin123');
+      toast.error('Invalid credentials. Please use admin/admin123');
     }
   };
 
