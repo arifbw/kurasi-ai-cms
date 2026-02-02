@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 const AUTH_KEY = 'modular_analytics_auth';
-const DARK_MODE_KEY = 'darkMode';
+
+const ADMIN_USERNAME = import.meta.env.VITE_ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
 
 interface AuthStore {
   authenticated: boolean;
@@ -10,17 +12,18 @@ interface AuthStore {
   login: (username: string, password: string) => boolean;
   logout: () => void;
   toggleDarkMode: () => void;
+  setDarkMode: (value: boolean) => void;
   checkAuth: () => boolean;
 }
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       authenticated: localStorage.getItem(AUTH_KEY) === 'true',
-      darkMode: localStorage.getItem(DARK_MODE_KEY) === 'true',
+      darkMode: false, 
 
       login: (username, password) => {
-        if (username === 'admin' && password === 'admin123') {
+        if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
           localStorage.setItem(AUTH_KEY, 'true');
           set({ authenticated: true });
           return true;
@@ -34,16 +37,11 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       toggleDarkMode: () => {
-        set((state) => {
-          const newDarkMode = !state.darkMode;
-          localStorage.setItem(DARK_MODE_KEY, newDarkMode.toString());
-          if (newDarkMode) {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
-          return { darkMode: newDarkMode };
-        });
+        set((state) => ({ darkMode: !state.darkMode }));
+      },
+
+      setDarkMode: (value) => {
+        set({ darkMode: value });
       },
 
       checkAuth: () => {
@@ -53,13 +51,6 @@ export const useAuthStore = create<AuthStore>()(
     {
       name: 'auth-storage',
       partialize: (state) => ({ darkMode: state.darkMode }),
-      onRehydrateStorage: () => (state) => {
-        if (state?.darkMode) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      },
     }
   )
 );

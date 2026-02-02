@@ -71,13 +71,15 @@ export function Login({ onLogin }: LoginProps) {
             </div>
           )}
 
-          <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              <strong>Demo Credentials:</strong><br />
-              Username: <code className="bg-white dark:bg-gray-800 px-2 py-1 rounded">admin</code><br />
-              Password: <code className="bg-white dark:bg-gray-800 px-2 py-1 rounded">admin123</code>
-            </p>
-          </div>
+          {import.meta.env.DEV && (
+            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                <strong>Demo Credentials:</strong><br />
+                Username: <code className="bg-white dark:bg-gray-800 px-2 py-1 rounded">admin</code><br />
+                Password: <code className="bg-white dark:bg-gray-800 px-2 py-1 rounded">admin123</code>
+              </p>
+            </div>
+          )}
 
           <button
             type="submit"

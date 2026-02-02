@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAppStore } from './stores/appStore';
 import { useAuthStore } from './stores/authStore';
+import { useDarkMode } from './hooks';
 import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
@@ -25,10 +25,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  const darkMode = useDarkMode();
 
   // Auth store
-  const authenticated = useAuthStore((state) => state.authenticated);
-  const darkMode = useAuthStore((state) => state.darkMode);
   const login = useAuthStore((state) => state.login);
   const logout = useAuthStore((state) => state.logout);
   const toggleDarkMode = useAuthStore((state) => state.toggleDarkMode);
@@ -50,19 +49,11 @@ export default function App() {
   const importState = useAppStore((state) => state.importState);
   const clearState = useAppStore((state) => state.clearState);
 
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
-
   const handleLogin = (username: string, password: string) => {
     if (login(username, password)) {
       navigate('/dashboard');
     } else {
-      toast.error('Invalid credentials. Please use admin/admin123');
+      toast.error('Invalid credentials');
     }
   };
 
