@@ -62,26 +62,59 @@ export function ClientManagement({
     }
   };
 
+  const validateForm = (): string | null => {
+    const name = formData.name.trim();
+    const category = formData.category.trim();
+
+    if (!name || name.length < 2) {
+      return 'Name must be at least 2 characters';
+    }
+    if (name.length > 100) {
+      return 'Name must be less than 100 characters';
+    }
+    if (!category) {
+      return 'Please select a data source';
+    }
+    if (formData.project_id <= 0) {
+      return 'Project ID must be a positive number';
+    }
+
+    if (!editingClient) {
+      const isDuplicate = clients.some(
+        (c) => c.name.toLowerCase() === name.toLowerCase()
+      );
+      if (isDuplicate) {
+        return 'A client with this name already exists';
+      }
+    }
+
+    return null;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const error = validateForm();
+    if (error) {
+      toast.error(error);
+      return;
+    }
+
+    const trimmedData = {
+      name: formData.name.trim(),
+      project_id: formData.project_id,
+      category: formData.category.trim(),
+      sector_id: formData.sector_id,
+      logo: formData.logo || undefined,
+    };
+
     if (editingClient) {
-      onUpdate(editingClient.client_id, {
-        name: formData.name,
-        project_id: formData.project_id,
-        category: formData.category,
-        sector_id: formData.sector_id,
-        logo: formData.logo || undefined
-      });
+      onUpdate(editingClient.client_id, trimmedData);
       toast.success('Client updated successfully');
     } else {
       const newClient: Client = {
         client_id: `client_${uuidv4()}`,
-        name: formData.name,
-        project_id: formData.project_id,
-        category: formData.category,
-        sector_id: formData.sector_id,
-        logo: formData.logo || undefined,
+        ...trimmedData,
         modules: {}
       };
       onAdd(newClient);

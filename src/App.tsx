@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from './stores/appStore';
 import { useAuthStore } from './stores/authStore';
 import { useDarkMode } from './hooks';
@@ -27,27 +28,38 @@ export default function App() {
   const location = useLocation();
   const darkMode = useDarkMode();
 
-  // Auth store
-  const login = useAuthStore((state) => state.login);
-  const logout = useAuthStore((state) => state.logout);
-  const toggleDarkMode = useAuthStore((state) => state.toggleDarkMode);
+  const { login, logout, toggleDarkMode } = useAuthStore(
+    useShallow((state) => ({
+      login: state.login,
+      logout: state.logout,
+      toggleDarkMode: state.toggleDarkMode,
+    }))
+  );
 
-  // App store
-  const sectors = useAppStore((state) => state.sectors);
-  const clients = useAppStore((state) => state.clients);
-  const masterModules = useAppStore((state) => state.masterModules);
-  const addSector = useAppStore((state) => state.addSector);
-  const updateSector = useAppStore((state) => state.updateSector);
-  const deleteSector = useAppStore((state) => state.deleteSector);
-  const addClient = useAppStore((state) => state.addClient);
-  const updateClient = useAppStore((state) => state.updateClient);
-  const deleteClient = useAppStore((state) => state.deleteClient);
-  const addModule = useAppStore((state) => state.addModule);
-  const updateModule = useAppStore((state) => state.updateModule);
-  const deleteModule = useAppStore((state) => state.deleteModule);
-  const exportState = useAppStore((state) => state.exportState);
-  const importState = useAppStore((state) => state.importState);
-  const clearState = useAppStore((state) => state.clearState);
+  const { sectors, clients, masterModules } = useAppStore(
+    useShallow((state) => ({
+      sectors: state.sectors,
+      clients: state.clients,
+      masterModules: state.masterModules,
+    }))
+  );
+
+  const actions = useAppStore(
+    useShallow((state) => ({
+      addSector: state.addSector,
+      updateSector: state.updateSector,
+      deleteSector: state.deleteSector,
+      addClient: state.addClient,
+      updateClient: state.updateClient,
+      deleteClient: state.deleteClient,
+      addModule: state.addModule,
+      updateModule: state.updateModule,
+      deleteModule: state.deleteModule,
+      exportState: state.exportState,
+      importState: state.importState,
+      clearState: state.clearState,
+    }))
+  );
 
   const handleLogin = (username: string, password: string) => {
     if (login(username, password)) {
@@ -103,9 +115,9 @@ export default function App() {
                 <Route path="/sectors" element={
                   <SectorManagement
                     sectors={sectors}
-                    onAdd={addSector}
-                    onUpdate={updateSector}
-                    onDelete={deleteSector}
+                    onAdd={actions.addSector}
+                    onUpdate={actions.updateSector}
+                    onDelete={actions.deleteSector}
                     onManageModules={navigateToSectorAssignment}
                   />
                 } />
@@ -117,9 +129,9 @@ export default function App() {
                   <ClientManagement
                     clients={clients}
                     sectors={sectors}
-                    onAdd={addClient}
-                    onUpdate={updateClient}
-                    onDelete={deleteClient}
+                    onAdd={actions.addClient}
+                    onUpdate={actions.updateClient}
+                    onDelete={actions.deleteClient}
                     onManageModules={navigateToClientAssignment}
                   />
                 } />
@@ -130,17 +142,17 @@ export default function App() {
                 <Route path="/modules" element={
                   <MasterModuleManagement
                     modules={masterModules}
-                    onAdd={addModule}
-                    onUpdate={updateModule}
-                    onDelete={deleteModule}
+                    onAdd={actions.addModule}
+                    onUpdate={actions.updateModule}
+                    onDelete={actions.deleteModule}
                   />
                 } />
 
                 <Route path="/debug" element={
                   <DebugExport
-                    onExport={exportState}
-                    onImport={importState}
-                    onClear={clearState}
+                    onExport={actions.exportState}
+                    onImport={actions.importState}
+                    onClear={actions.clearState}
                   />
                 } />
               </Routes>

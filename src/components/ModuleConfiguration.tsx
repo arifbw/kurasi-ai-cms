@@ -23,8 +23,8 @@ export function ModuleConfiguration({
     // Initialize with defaults if no values exist
     const initialValues = { ...configValues };
     module.config_schema.forEach((field) => {
-      if (!(field.id in initialValues)) {
-        initialValues[field.id] = field.default;
+      if (!(field.name in initialValues)) {
+        initialValues[field.name] = field.default;
       }
     });
     setConfigValues(initialValues);
@@ -97,10 +97,10 @@ export function ModuleConfiguration({
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 {module.config_schema.map((field) => {
-                  const value = configValues[field.id] ?? field.default;
+                  const value = configValues[field.name] ?? field.default;
                   
                   return (
-                    <div key={field.id}>
+                    <div key={field.name}>
                       <label className="block text-gray-700 mb-2">
                         {field.label}
                         <span className="text-gray-500 text-sm ml-2">({field.type})</span>
@@ -110,7 +110,7 @@ export function ModuleConfiguration({
                         <input
                           type="text"
                           value={value || ''}
-                          onChange={(e) => handleFieldChange(field.id, e.target.value)}
+                          onChange={(e) => handleFieldChange(field.name, e.target.value)}
                           className="w-full px-3 py-2 border rounded-lg"
                         />
                       )}
@@ -118,7 +118,7 @@ export function ModuleConfiguration({
                       {field.type === 'textarea' && (
                         <textarea
                           value={value || ''}
-                          onChange={(e) => handleFieldChange(field.id, e.target.value)}
+                          onChange={(e) => handleFieldChange(field.name, e.target.value)}
                           className="w-full px-3 py-2 border rounded-lg"
                           rows={4}
                         />
@@ -128,7 +128,7 @@ export function ModuleConfiguration({
                         <input
                           type="number"
                           value={value || 0}
-                          onChange={(e) => handleFieldChange(field.id, parseFloat(e.target.value) || 0)}
+                          onChange={(e) => handleFieldChange(field.name, parseFloat(e.target.value) || 0)}
                           className="w-full px-3 py-2 border rounded-lg"
                         />
                       )}
@@ -138,7 +138,7 @@ export function ModuleConfiguration({
                           <input
                             type="checkbox"
                             checked={value === true}
-                            onChange={(e) => handleFieldChange(field.id, e.target.checked)}
+                            onChange={(e) => handleFieldChange(field.name, e.target.checked)}
                             className="w-5 h-5 rounded border-gray-300"
                           />
                           <span className="text-gray-600">
@@ -150,7 +150,7 @@ export function ModuleConfiguration({
                       {field.type === 'select' && (
                         <select
                           value={value || ''}
-                          onChange={(e) => handleFieldChange(field.id, e.target.value)}
+                          onChange={(e) => handleFieldChange(field.name, e.target.value)}
                           className="w-full px-3 py-2 border rounded-lg"
                         >
                           <option value="">-- Select an option --</option>

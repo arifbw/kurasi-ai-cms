@@ -30,22 +30,58 @@ export function SectorManagement({
     category: ''
   });
 
+  const validateForm = (): string | null => {
+    const name = formData.name.trim();
+    const description = formData.description.trim();
+    const category = formData.category.trim();
+
+    if (!name || name.length < 2) {
+      return 'Name must be at least 2 characters';
+    }
+    if (name.length > 100) {
+      return 'Name must be less than 100 characters';
+    }
+    if (!description || description.length < 3) {
+      return 'Description must be at least 3 characters';
+    }
+    if (!category) {
+      return 'Please select a data source';
+    }
+
+    if (!editingSector) {
+      const isDuplicate = sectors.some(
+        (s) => s.name.toLowerCase() === name.toLowerCase() && s.category === category
+      );
+      if (isDuplicate) {
+        return 'A sector with this name and data source already exists';
+      }
+    }
+
+    return null;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const error = validateForm();
+    if (error) {
+      toast.error(error);
+      return;
+    }
+
+    const trimmedData = {
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      category: formData.category.trim(),
+    };
+
     if (editingSector) {
-      onUpdate(editingSector.id, {
-        name: formData.name,
-        description: formData.description,
-        category: formData.category
-      });
+      onUpdate(editingSector.id, trimmedData);
       toast.success('Sector updated successfully');
     } else {
       const newSector: Sector = {
         id: `sector_${uuidv4()}`,
-        name: formData.name,
-        description: formData.description,
-        category: formData.category,
+        ...trimmedData,
         modules: {}
       };
       onAdd(newSector);

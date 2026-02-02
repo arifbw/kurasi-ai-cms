@@ -47,6 +47,101 @@ const createDefaultConfigValues = (module: MasterModule): ModuleConfigValue => {
   return configValues;
 };
 
+const isValidId = (value: unknown): boolean => {
+  return typeof value === 'string' || typeof value === 'number';
+};
+
+const validateImportData = (data: unknown): { valid: boolean; error?: string } => {
+  if (!data || typeof data !== 'object') {
+    return { valid: false, error: 'Data must be an object' };
+  }
+
+  const obj = data as Record<string, unknown>;
+
+  if (obj.sectors !== undefined) {
+    if (!Array.isArray(obj.sectors)) {
+      return { valid: false, error: 'sectors must be an array' };
+    }
+    for (const sector of obj.sectors) {
+      if (!sector || typeof sector !== 'object') {
+        return { valid: false, error: 'Each sector must be an object' };
+      }
+      const s = sector as Record<string, unknown>;
+      if (!isValidId(s.id) || typeof s.name !== 'string') {
+        return { valid: false, error: 'Sector must have id and name' };
+      }
+      if (s.modules !== undefined && typeof s.modules !== 'object') {
+        return { valid: false, error: 'Sector modules must be an object' };
+      }
+    }
+  }
+
+  if (obj.clients !== undefined) {
+    if (!Array.isArray(obj.clients)) {
+      return { valid: false, error: 'clients must be an array' };
+    }
+    for (const client of obj.clients) {
+      if (!client || typeof client !== 'object') {
+        return { valid: false, error: 'Each client must be an object' };
+      }
+      const c = client as Record<string, unknown>;
+      if (!isValidId(c.client_id) || typeof c.name !== 'string') {
+        return { valid: false, error: 'Client must have client_id and name' };
+      }
+      if (c.modules !== undefined && typeof c.modules !== 'object') {
+        return { valid: false, error: 'Client modules must be an object' };
+      }
+    }
+  }
+
+  if (obj.masterModules !== undefined) {
+    if (!Array.isArray(obj.masterModules)) {
+      return { valid: false, error: 'masterModules must be an array' };
+    }
+    for (const module of obj.masterModules) {
+      if (!module || typeof module !== 'object') {
+        return { valid: false, error: 'Each module must be an object' };
+      }
+      const m = module as Record<string, unknown>;
+      if (!isValidId(m.id) || typeof m.name !== 'string') {
+        return { valid: false, error: 'Module must have id and name' };
+      }
+      if (!Array.isArray(m.config_schema)) {
+        return { valid: false, error: 'Module must have config_schema as array' };
+      }
+    }
+  }
+
+  return { valid: true };
+};
+
+const migrateImportData = (data: Record<string, unknown>): Record<string, unknown> => {
+  const migrated = { ...data };
+
+  if (Array.isArray(migrated.masterModules)) {
+    migrated.masterModules = migrated.masterModules.map((m: Record<string, unknown>) => ({
+      ...m,
+      id: String(m.id),
+    }));
+  }
+
+  if (Array.isArray(migrated.sectors)) {
+    migrated.sectors = migrated.sectors.map((s: Record<string, unknown>) => ({
+      ...s,
+      id: String(s.id),
+    }));
+  }
+
+  if (Array.isArray(migrated.clients)) {
+    migrated.clients = migrated.clients.map((c: Record<string, unknown>) => ({
+      ...c,
+      client_id: String(c.client_id),
+    }));
+  }
+
+  return migrated;
+};
+
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
@@ -258,13 +353,23 @@ export const useAppStore = create<AppStore>()(
       importState: (jsonString) => {
         try {
           const imported = JSON.parse(jsonString);
+
+          const validation = validateImportData(imported);
+          if (!validation.valid) {
+            console.error('Import validation failed:', validation.error);
+            return false;
+          }
+
+          const migrated = migrateImportData(imported);
+
           set({
-            sectors: imported.sectors || [],
-            clients: imported.clients || [],
-            masterModules: imported.masterModules || [],
+            sectors: (migrated.sectors as Sector[]) || [],
+            clients: (migrated.clients as Client[]) || [],
+            masterModules: (migrated.masterModules as MasterModule[]) || [],
           });
           return true;
-        } catch {
+        } catch (error) {
+          console.error('Import failed:', error);
           return false;
         }
       },
